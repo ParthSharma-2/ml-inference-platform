@@ -1,0 +1,35 @@
+{
+  "model_type": "GradientBoostingClassifier",
+  "roc_auc": 0.841501976284585,
+  "n_features": 30,
+  "n_training_samples": 5634,
+  "numeric_columns": [
+    "SeniorCitizen",
+    "tenure",
+    "MonthlyCharges",
+    "TotalCharges"
+  ],
+  "categorical_columns": [
+    "gender",
+    "Partner",
+    "Dependents",
+    "PhoneService",
+    "MultipleLines",
+    "InternetService",
+    "OnlineSecurity",
+    "OnlineBackup",
+    "DeviceProtection",
+    "TechSupport",
+    "StreamingTV",
+    "StreamingMovies",
+    "Contract",
+    "PaperlessBilling",
+    "PaymentMethod"
+  ],
+  "prediction_threshold": 0.4,
+  "artifact_format": "joblib",
+  "artifact_compatibility_note": "Inference artifact sanitized to remove fitted NumPy RandomState objects that are not portable across NumPy major versions.",
+  "training_model_random_state": 42,
+  "model_sklearn_version": "1.6.1",
+  "model_version": "1.0.0"
+}

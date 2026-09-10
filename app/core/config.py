@@ -8,7 +8,7 @@ class Settings(BaseSettings):
 
     postgres_db: str = "ml_serving"
     postgres_user: str = "postgres"
-    postgres_password: str = "ml_dev_password"
+    postgres_password: str = "change_me"
     postgres_host: str = "localhost"
     postgres_port: int = 5432
 

@@ -79,3 +79,28 @@ class PredictionResponse(BaseModel):
     churn_prediction: Literal["Yes", "No"]
     top_drivers: list[TopDriver]
     model_version: str = "1.0.0"
+
+
+class BatchPredictionRequest(BaseModel):
+    """Request containing multiple customers for asynchronous prediction."""
+
+    customers: list[CustomerFeatures] = Field(
+        ...,
+        min_length=1,
+        max_length=100,
+        description="List of customer records to process asynchronously",
+    )
+
+
+class BatchPredictionResponse(BaseModel):
+    """Immediate response returned when a batch job is queued."""
+
+    job_id: str
+    status: Literal["queued"]
+
+class BatchPredictionStatusResponse(BaseModel):
+    """Current status and result of an asynchronous batch prediction job."""
+
+    job_id: str
+    status: str
+    result: dict | None = None

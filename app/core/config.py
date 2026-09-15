@@ -8,9 +8,11 @@ class Settings(BaseSettings):
 
     postgres_db: str = "ml_serving"
     postgres_user: str = "postgres"
-    postgres_password: str = "change_me"
+    postgres_password: str = "ml_dev_password"
     postgres_host: str = "localhost"
     postgres_port: int = 5432
+
+    redis_url: str = "redis://localhost:6379/0"
 
     model_config = SettingsConfigDict(
         env_file=".env",

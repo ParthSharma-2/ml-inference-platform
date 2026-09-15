@@ -1,13 +1,23 @@
 import logging
 
+from celery.result import AsyncResult
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.db.models import PredictionLog
 from app.ml.model_loader import get_artifacts, ModelArtifacts
-from app.ml.schema import CustomerFeatures, PredictionResponse
 from app.ml.inference import predict as run_prediction
+
+from app.ml.schema import (
+    BatchPredictionRequest,
+    BatchPredictionResponse,
+    CustomerFeatures,
+    PredictionResponse,
+    BatchPredictionStatusResponse,
+)
+from app.workers.celery_app import celery_app
+from app.workers.tasks import process_batch_predictions
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +78,7 @@ def predict(
 
         # 4. Return the original API response
         return result
-
+    
     except Exception:
         db.rollback()
         logger.exception(
@@ -79,3 +89,53 @@ def predict(
             status_code=500,
             detail="Prediction failed. Check server logs.",
         )
+
+@router.post(
+    "/predictions/batch",
+    response_model=BatchPredictionResponse,
+    status_code=202,
+)
+def batch_predict(request: BatchPredictionRequest):
+    """
+    Queue multiple customer predictions for asynchronous processing.
+
+    Returns immediately with a Celery job ID.
+    """
+
+    task = process_batch_predictions.delay(
+        [customer.model_dump() for customer in request.customers]
+    )
+
+    logger.info(
+        "Batch prediction job queued: %s (%d customers)",
+        task.id,
+        len(request.customers),
+    )
+
+    return BatchPredictionResponse(
+        job_id=task.id,
+        status="queued",
+    )
+@router.get(
+    "/predictions/batch/{job_id}",
+    response_model=BatchPredictionStatusResponse,
+)
+def batch_prediction_status(job_id: str):
+    """
+    Return the current status and result of an asynchronous batch job.
+    """
+
+    task_result = AsyncResult(
+        job_id,
+        app=celery_app,
+    )
+
+    response = {
+        "job_id": job_id,
+        "status": task_result.state,
+    }
+
+    if task_result.ready():
+        response["result"] = task_result.result
+
+    return response

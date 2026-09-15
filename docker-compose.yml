@@ -84,7 +84,8 @@ services:
 
     container_name: ml-serving-worker
     restart: unless-stopped
-
+    
+    user: "appuser"
     # Override the API entrypoint and start Celery instead.
     entrypoint: []
 

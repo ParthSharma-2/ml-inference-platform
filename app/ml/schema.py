@@ -8,16 +8,33 @@ dummy columns.
 """
 
 from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field
 
 
 class CustomerFeatures(BaseModel):
     """Raw customer attributes, as a human/consumer would provide them."""
 
-    senior_citizen: bool = Field(..., description="Whether the customer is a senior citizen")
-    tenure: int = Field(..., ge=0, le=100, description="Number of months the customer has stayed")
-    monthly_charges: float = Field(..., ge=0, description="Current monthly charge amount")
-    total_charges: float = Field(..., ge=0, description="Total amount charged to the customer")
+    senior_citizen: bool = Field(
+        ...,
+        description="Whether the customer is a senior citizen",
+    )
+    tenure: int = Field(
+        ...,
+        ge=0,
+        le=100,
+        description="Number of months the customer has stayed",
+    )
+    monthly_charges: float = Field(
+        ...,
+        ge=0,
+        description="Current monthly charge amount",
+    )
+    total_charges: float = Field(
+        ...,
+        ge=0,
+        description="Total amount charged to the customer",
+    )
 
     gender: Literal["Female", "Male"]
     partner: Literal["Yes", "No"]
@@ -68,13 +85,21 @@ class CustomerFeatures(BaseModel):
 
 
 class TopDriver(BaseModel):
+    """Top SHAP feature contributing to a prediction."""
+
     feature: str
     shap_value: float
-    direction: Literal["increases_churn_risk", "decreases_churn_risk"]
+    direction: Literal[
+        "increases_churn_risk",
+        "decreases_churn_risk",
+    ]
 
 
 class PredictionResponse(BaseModel):
+    """Response returned for a single churn prediction."""
+
     model_config = ConfigDict(protected_namespaces=())
+
     churn_probability: float
     churn_prediction: Literal["Yes", "No"]
     top_drivers: list[TopDriver]
@@ -97,6 +122,7 @@ class BatchPredictionResponse(BaseModel):
 
     job_id: str
     status: Literal["queued"]
+
 
 class BatchPredictionStatusResponse(BaseModel):
     """Current status and result of an asynchronous batch prediction job."""

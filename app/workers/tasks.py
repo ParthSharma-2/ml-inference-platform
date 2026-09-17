@@ -1,5 +1,7 @@
 import logging
 
+from sqlalchemy.exc import DBAPIError, OperationalError
+
 from app.db.database import SessionLocal
 from app.db.models import PredictionLog
 from app.ml.inference import predict as run_prediction
@@ -15,13 +17,21 @@ def test_task(value: int) -> int:
     return value * 2
 
 
-@celery_app.task(bind=True)
+@celery_app.task(
+    bind=True,
+    max_retries=3,
+    soft_time_limit=60,
+    time_limit=90,
+)
 def process_batch_predictions(self, customers: list[dict]) -> dict:
     """
     Process a batch of customer predictions asynchronously.
 
-    The Celery worker performs ML inference and persists each
-    prediction to PostgreSQL.
+    Customer-level validation/inference failures are recorded and
+    do not retry the entire batch.
+
+    Database connectivity failures are treated as transient and
+    retried with exponential backoff, up to 3 retries.
     """
 
     artifacts = get_artifacts()
@@ -35,9 +45,16 @@ def process_batch_predictions(self, customers: list[dict]) -> dict:
         for customer_data in customers:
             try:
                 features = CustomerFeatures.model_validate(customer_data)
-
                 result = run_prediction(features, artifacts)
 
+            except Exception:
+                failed += 1
+                logger.exception(
+                    "Batch prediction failed for one customer"
+                )
+                continue
+
+            try:
                 prediction_log = PredictionLog(
                     senior_citizen=features.senior_citizen,
                     tenure=features.tenure,
@@ -73,11 +90,33 @@ def process_batch_predictions(self, customers: list[dict]) -> dict:
                 prediction_ids.append(prediction_log.id)
                 completed += 1
 
-            except Exception:
-                failed += 1
-                logger.exception(
-                    "Batch prediction failed for one customer"
+            except (OperationalError, DBAPIError) as exc:
+                db.rollback()
+
+                retry_countdown = 2 ** self.request.retries
+
+                logger.warning(
+                    "Transient database failure for batch job %s. "
+                    "Retry %s/%s in %s seconds.",
+                    self.request.id,
+                    self.request.retries + 1,
+                    self.max_retries,
+                    retry_countdown,
                 )
+
+                raise self.retry(
+                    exc=exc,
+                    countdown=retry_countdown,
+                )
+
+            except Exception:
+                db.rollback()
+
+                logger.exception(
+                    "Database persistence failed for one customer"
+                )
+
+                raise
 
         db.commit()
 
@@ -90,12 +129,33 @@ def process_batch_predictions(self, customers: list[dict]) -> dict:
             "prediction_ids": prediction_ids,
         }
 
+    except (OperationalError, DBAPIError) as exc:
+        db.rollback()
+
+        retry_countdown = 2 ** self.request.retries
+
+        logger.warning(
+            "Transient database failure for batch job %s. "
+            "Retry %s/%s in %s seconds.",
+            self.request.id,
+            self.request.retries + 1,
+            self.max_retries,
+            retry_countdown,
+        )
+
+        raise self.retry(
+            exc=exc,
+            countdown=retry_countdown,
+        )
+
     except Exception:
         db.rollback()
+
         logger.exception(
             "Batch prediction job failed: %s",
             self.request.id,
         )
+
         raise
 
     finally:

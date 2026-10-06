@@ -52,6 +52,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      mlflow:
+        condition: service_started
 
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-ml_serving}
@@ -61,6 +63,8 @@ services:
       POSTGRES_PORT: 5432
 
       REDIS_URL: redis://redis:6379/0
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      MLFLOW_MODEL_URI: models:/customer-churn-model/1
 
     ports:
       - "8000:8000"
@@ -101,6 +105,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      mlflow:
+        condition: service_started
 
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-ml_serving}
@@ -110,6 +116,8 @@ services:
       POSTGRES_PORT: 5432
 
       REDIS_URL: redis://redis:6379/0
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      MLFLOW_MODEL_URI: models:/customer-churn-model/1
 
     # Worker healthcheck.
     # It checks whether Celery can communicate with the worker.
@@ -125,5 +133,33 @@ services:
       start_period: 20s
 
 
+  mlflow:
+    image: python:3.11-slim
+    container_name: ml-serving-mlflow
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command:
+      - sh
+      - -c
+      - >
+        pip install --no-cache-dir mlflow==3.16.1 psycopg[binary]==3.3.5 &&
+        mlflow server
+        --host 0.0.0.0
+        --port 5000
+        --backend-store-uri postgresql://postgres:postgres@postgres:5432/mlflow
+        --artifacts-destination /mlflow/artifacts
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow_artifacts:/mlflow/artifacts
+    restart: unless-stopped
+
 volumes:
   postgres_data:
+    name: ml-serving-platform-fixed_postgres_data
+
+  mlflow_artifacts:
+    name: ml-serving-platform-fixed_mlflow_artifacts

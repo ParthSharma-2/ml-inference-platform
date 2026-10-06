@@ -1,6 +1,6 @@
 {
   "model_type": "GradientBoostingClassifier",
-  "roc_auc": 0.841501976284585,
+  "roc_auc": 0.8415148931772973,
   "n_features": 30,
   "n_training_samples": 5634,
   "numeric_columns": [
@@ -27,9 +27,10 @@
     "PaymentMethod"
   ],
   "prediction_threshold": 0.4,
-  "artifact_format": "joblib",
-  "artifact_compatibility_note": "Inference artifact sanitized to remove fitted NumPy RandomState objects that are not portable across NumPy major versions.",
-  "training_model_random_state": 42,
-  "model_sklearn_version": "1.6.1",
-  "model_version": "1.0.0"
+  "training_random_state": 42,
+  "python_version": "3.11.9",
+  "numpy_version": "1.26.4",
+  "pandas_version": "2.2.3",
+  "scikit_learn_version": "1.6.1",
+  "joblib_version": "1.4.2"
 }

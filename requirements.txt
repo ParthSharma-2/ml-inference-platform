@@ -14,3 +14,4 @@ psycopg[binary]==3.3.5
 alembic==1.19.2
 celery==5.5.3
 redis==6.4.0
+mlflow==3.16.1

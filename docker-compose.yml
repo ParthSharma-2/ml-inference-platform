@@ -93,12 +93,9 @@ services:
     # Override the API entrypoint and start Celery instead.
     entrypoint: []
 
-    command:
-      - celery
-      - -A
-      - app.workers.celery_app.celery_app
-      - worker
-      - --loglevel=info
+    command: >
+      sh -c "mkdir -p /tmp/prometheus_multiproc &&
+      celery -A app.workers.celery_app worker --loglevel=info"
 
     depends_on:
       postgres:
@@ -107,14 +104,17 @@ services:
         condition: service_healthy
       mlflow:
         condition: service_started
-
+        
+    ports:
+    - "8001:8001"
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-ml_serving}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_HOST: postgres
       POSTGRES_PORT: 5432
-
+      
+      PROMETHEUS_MULTIPROC_DIR: /tmp/prometheus_multiproc
       REDIS_URL: redis://redis:6379/0
       MLFLOW_TRACKING_URI: http://mlflow:5000
       MLFLOW_MODEL_URI: models:/customer-churn-model/1
@@ -149,6 +149,7 @@ services:
         --port 5000
         --backend-store-uri postgresql://postgres:postgres@postgres:5432/mlflow
         --artifacts-destination /mlflow/artifacts
+        --allowed-hosts mlflow:5000,localhost:5000,127.0.0.1:5000
     environment:
       MLFLOW_TRACKING_URI: http://mlflow:5000
     ports:
@@ -156,6 +157,16 @@ services:
     volumes:
       - mlflow_artifacts:/mlflow/artifacts
     restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v3.8.1
+    container_name: ml-serving-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      - api
 
 volumes:
   postgres_data:

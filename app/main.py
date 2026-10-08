@@ -2,12 +2,13 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-
+from prometheus_fastapi_instrumentator import Instrumentator
 from app.core.config import settings
 from app.api.v1.router import api_router
 from app.ml.model_loader import get_artifacts
+from app.core.logging import configure_logging
 
-logging.basicConfig(level=logging.INFO)
+configure_logging()
 logger = logging.getLogger(__name__)
 
 
@@ -30,6 +31,7 @@ app = FastAPI(
 
 app.include_router(api_router, prefix=settings.api_v1_prefix)
 
+Instrumentator().instrument(app).expose(app)
 
 @app.get("/")
 def root():

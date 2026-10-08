@@ -1,8 +1,15 @@
 import logging
-
+import time
 from celery.result import AsyncResult
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+
+from app.observability.metrics import (
+    predictions_total,
+    prediction_errors_total,
+    prediction_latency_seconds,
+    batch_jobs_submitted_total,
+)
 
 from app.db.database import get_db
 from app.db.models import PredictionLog
@@ -39,8 +46,30 @@ def predict(
     """
 
     try:
-        # 1. Run ML prediction
-        result = run_prediction(features, artifacts)
+    # 1. Run ML prediction and record metrics
+        start_time = time.perf_counter()
+
+        try:
+            result = run_prediction(features, artifacts)
+
+            predictions_total.labels(
+            prediction_type="single"
+            ).inc()
+
+        except Exception:
+            prediction_errors_total.labels(
+                prediction_type="single"
+            ).inc()
+            raise
+
+        finally:
+            prediction_latency_seconds.labels(
+                prediction_type="single"
+            ).observe(
+                time.perf_counter() - start_time
+            )
+
+    # 2. Create database record
 
         # 2. Create database record
         prediction_log = PredictionLog(
@@ -105,6 +134,8 @@ def batch_predict(request: BatchPredictionRequest):
     task = process_batch_predictions.delay(
         [customer.model_dump() for customer in request.customers]
     )
+    
+    batch_jobs_submitted_total.inc()
 
     logger.info(
         "Batch prediction job queued: %s (%d customers)",

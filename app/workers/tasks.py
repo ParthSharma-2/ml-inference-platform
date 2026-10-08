@@ -9,6 +9,11 @@ from app.ml.model_loader import get_artifacts
 from app.ml.schema import CustomerFeatures
 from app.workers.celery_app import celery_app
 
+from app.observability.metrics import (
+    batch_jobs_completed_total,
+    batch_jobs_failed_total,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -119,6 +124,7 @@ def process_batch_predictions(self, customers: list[dict]) -> dict:
                 raise
 
         db.commit()
+        batch_jobs_completed_total.inc()
 
         return {
             "job_id": self.request.id,
@@ -150,6 +156,8 @@ def process_batch_predictions(self, customers: list[dict]) -> dict:
 
     except Exception:
         db.rollback()
+
+        batch_jobs_failed_total.inc()
 
         logger.exception(
             "Batch prediction job failed: %s",

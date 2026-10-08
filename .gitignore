@@ -34,3 +34,6 @@ htmlcov/
 
 # Docker
 docker-compose.override.yml
+# Local ML artifacts and datasets
+data/
+mlartifacts/
